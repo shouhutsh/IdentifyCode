@@ -4,6 +4,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -101,20 +102,68 @@ public class ImageParse {
         return new_img;
     }
 
-    private static List<char[][]> splitImage(char[][] image, int num) {
+    private static List<char[][]> splitImageWithAverage(char[][] image, int num) {
         Rectangle r = new Rectangle(image);
         int h = r.height;
-        // FIXME 可能除不尽，有多余列
-        int w = r.width / num;
+        int w = (r.width + num - 1) / num;
 
         List<char[][]> imgs = new ArrayList<char[][]>(num);
         for (int i = 1; i <= num; ++i) {
-            char[][] img = new char[h][w];
+            // 我每次多取一列以提高精确度
+            char[][] img = new char[h][w + 1];
             for (int j = 0; j < h; ++j) {
-                for (int k = w * (i - 1); k < w * i; ++k) {
-                    img[j][k - w * (i - 1)] = image[j][k];
+                for (int k = (w * (i - 1) - 1); k < w * i; ++k) {
+                    if (k < 0 || k >= r.width)
+                        img[j][k - (w * (i - 1) - 1)] = ' ';
+                    else
+                        img[j][k - (w * (i - 1) - 1)] = image[j][k];
                 }
             }
+            imgs.add(img);
+        }
+        return imgs;
+    }
+
+    // FIXME
+    private static List<char[][]> splitImageWithBlank(char[][] image) {
+        final int START = 0;
+        final int END = 1;
+
+        Rectangle r = new Rectangle(image);
+        List<Integer> splitPoint = new ArrayList<Integer>();
+
+
+        int state = START;
+        splitPoint.add(0);
+        for (int x = 0; x < r.width; ++x) {
+            int count = 0;
+            if (state == START) {
+                for (int y = 0; y < r.height; ++y)
+                    if (image[y][x] == CHAR_SHOW) ++count;
+                if (count <= 0) {
+                    splitPoint.add(x);
+                    state = END;
+                }
+            } else if (state == END) {
+                for (int y = 0; y < r.height; ++y)
+                    if (image[y][x] == CHAR_SHOW) ++count;
+                if (count > 0) {
+                    splitPoint.add(x);
+                    state = START;
+                }
+            }
+        }
+        splitPoint.add(r.width);
+
+
+        List<char[][]> imgs = new ArrayList<char[][]>(splitPoint.size() / 2);
+        for (int i = 0; i < splitPoint.size(); i += 2) {
+            int s = splitPoint.get(i);
+            int e = splitPoint.get(i + 1);
+            char[][] img = new char[r.height][e - s];
+            for (int y = 0; y < r.height; ++y)
+                for (int x = s; x < e; ++x)
+                    img[y][x - s] = image[y][x];
             imgs.add(img);
         }
         return imgs;
@@ -130,7 +179,6 @@ public class ImageParse {
         for (int h = p.y - 1; h <= p.y + 1; ++h) {
             for (int w = p.x - 1; w <= p.x + 1; ++w) {
                 // 在Image四角时会发生重复计数的情况，但是一个点并不影响什么
-                // 这里count会多计算中间那个点
                 if ((w >= 0 && h >= 0)
                         && (w < rec.width && h < rec.height)
                         && image[h][w] == CHAR_SHOW) {
@@ -180,9 +228,8 @@ public class ImageParse {
         dispImage(clean);
         dispImage(clip);
 
-        int num = 4;
-        List<char[][]> imgs = splitImage(clip, num);
-        for(char[][] img : imgs){
+        List<char[][]> imgs = splitImageWithBlank(clip);
+        for (char[][] img : imgs) {
             dispImage(clipImage(img));
         }
     }
