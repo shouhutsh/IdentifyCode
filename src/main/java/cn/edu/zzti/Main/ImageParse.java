@@ -3,6 +3,8 @@ package cn.edu.zzti.Main;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by ae-mp02 on 2015/8/6.
@@ -16,6 +18,7 @@ public class ImageParse {
     private static final char CHAR_HIDE = ' ';
     private static final float THRESHOLD_SHOW_CHAR = 0X100 * 1.5F;
     private static final float THRESHOLD_CLEAN_CHAR = 5;
+    private static final float THRESHOLD_CLEAN_LINE = 2;
 
     public static char[][] parse(BufferedImage img) {
         Rectangle rec = new Rectangle(img);
@@ -67,17 +70,25 @@ public class ImageParse {
         Rectangle r = new Rectangle(old_img);
 
         lableX:
-        for (x = 0; x < r.width; ++x)
-            for (int _y = 0; _y < r.height; ++_y)
-                if (old_img[_y][x] == CHAR_SHOW) break lableX;
+        for (x = 0; x < r.width; ++x) {
+            int count = 0;
+            for (int _y = 0; _y < r.height; ++_y) {
+                if (old_img[_y][x] == CHAR_SHOW) ++count;
+            }
+            if (count > THRESHOLD_CLEAN_LINE) break lableX;
+        }
         lableY:
         for (y = 0; y < r.height; ++y)
             for (int _x = 0; _x < r.width; ++_x)
                 if (old_img[y][_x] == CHAR_SHOW) break lableY;
         lableW:
-        for (w = r.width - 1; w > 0; --w)
-            for (int _h = 0; _h < r.height; ++_h)
-                if (old_img[_h][w] == CHAR_SHOW) break lableW;
+        for (w = r.width - 1; w > 0; --w) {
+            int count = 0;
+            for (int _h = 0; _h < r.height; ++_h) {
+                if (old_img[_h][w] == CHAR_SHOW) ++count;
+            }
+            if (count > THRESHOLD_CLEAN_LINE) break lableW;
+        }
         lableH:
         for (h = r.height - 1; h > 0; --h)
             for (int _w = 0; _w < r.width; ++_w)
@@ -88,6 +99,25 @@ public class ImageParse {
             for (int _x = x; _x <= w; ++_x)
                 new_img[_y - y][_x - x] = old_img[_y][_x];
         return new_img;
+    }
+
+    private static List<char[][]> splitImage(char[][] image, int num) {
+        Rectangle r = new Rectangle(image);
+        int h = r.height;
+        // FIXME 可能除不尽，有多余列
+        int w = r.width / num;
+
+        List<char[][]> imgs = new ArrayList<char[][]>(num);
+        for (int i = 1; i <= num; ++i) {
+            char[][] img = new char[h][w];
+            for (int j = 0; j < h; ++j) {
+                for (int k = w * (i - 1); k < w * i; ++k) {
+                    img[j][k - w * (i - 1)] = image[j][k];
+                }
+            }
+            imgs.add(img);
+        }
+        return imgs;
     }
 
     // TODO 使用广度优先算法将干扰点去除
@@ -149,5 +179,11 @@ public class ImageParse {
         dispImage(image);
         dispImage(clean);
         dispImage(clip);
+
+        int num = 4;
+        List<char[][]> imgs = splitImage(clip, num);
+        for(char[][] img : imgs){
+            dispImage(clipImage(img));
+        }
     }
 }
